@@ -10,7 +10,7 @@ services:
       - key: PORT
         value: "20128"
       - key: OMNIROUTE_MEMORY_MB
-        value: "320"
+        value: "256"
       - key: JWT_SECRET
         generateValue: true
       - key: API_KEY_SECRET

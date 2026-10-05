@@ -31,3 +31,11 @@ No `.env` editing needed. Check the Render **Logs** tab for `[render-start] Publ
 ## "Bootstrap token" screen
 If OmniRoute asks for a one-time bootstrap token, open Render → your service → **Logs**,
 search for `bootstrap`, copy the token and paste it into the page.
+
+## "Service temporarily unavailable due to resource pressure"
+Render free = 512 MB RAM, which is right at OmniRoute's minimum. The Dockerfile applies
+low-memory settings (256 MB heap, no file logs, small log buffers, 1 heavy request at a time,
+auto-restart on sustained pressure). Tips:
+- Avoid "Test all models" batch tests — they spike memory.
+- Add only the providers you actually use.
+- For reliable use, pick a plan with 2 GB RAM (Render Standard) and set OMNIROUTE_MEMORY_MB=1024.
