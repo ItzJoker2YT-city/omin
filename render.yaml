@@ -33,7 +33,7 @@ services:
       - key: BACKUP_PASSPHRASE
         generateValue: true  # encrypts backups — never change it after first backup
       - key: BACKUP_INTERVAL_MIN
-        value: "10"
+        value: "1"
       - key: REDIS_URL
         fromService:
           type: keyvalue

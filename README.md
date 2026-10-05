@@ -44,7 +44,7 @@ auto-restart on sustained pressure). Tips:
 `backup-runner.mjs` keeps your OmniRoute data in the **private** repo `ItzJoker2YT-city/omin-backup`
 (AES-256 encrypted with `STORAGE_ENCRYPTION_KEY`, or `BACKUP_PASSPHRASE` if set).
 - **Before every deploy/restart/sleep** (Render sends SIGTERM): stops OmniRoute cleanly, then backs up.
-- **Every 10 min** while running: backs up if anything changed (protects against crashes).
+- **Every 1 min** while running: backs up if anything changed (protects against crashes).
 - **On start:** if the data folder is empty, restores the latest backup automatically.
 
 Setup (once): create a fine-grained token at https://github.com/settings/personal-access-tokens/new

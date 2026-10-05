@@ -15,7 +15,7 @@ const TOKEN = process.env.BACKUP_GITHUB_TOKEN || "";
 const REPO = process.env.BACKUP_GITHUB_REPO || ""; // e.g. user/omin-backup
 const BRANCH = process.env.BACKUP_GITHUB_BRANCH || "main";
 const FILE = process.env.BACKUP_FILE || "omniroute-backup.bin";
-const INTERVAL_MIN = Number(process.env.BACKUP_INTERVAL_MIN || 10);
+const INTERVAL_MIN = Number(process.env.BACKUP_INTERVAL_MIN || 1);
 const SECRET = process.env.BACKUP_PASSPHRASE || process.env.STORAGE_ENCRYPTION_KEY || "";
 const SKIP_DIRS = new Set(["logs", "call_logs", "backups", "tmp", "cache", ".cache"]);
 const MAX_FILE = 80 * 1024 * 1024;
@@ -91,7 +91,7 @@ async function backup(reason) {
   try {
     const plain = await buildBundle();
     const hash = crypto.createHash("sha256").update(JSON.stringify(JSON.parse(plain).files)).digest("hex");
-    if (hash === lastHash) { log(`no changes (${reason})`); return; }
+    if (hash === lastHash) { if (reason !== "scheduled") log(`no changes (${reason})`); return; }
     const blob = encrypt(plain); const sha = await remoteSha();
     const r = await fetch(api, { method: "PUT", headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({ message: `backup: ${reason}`, content: blob.toString("base64"), branch: BRANCH, ...(sha && { sha }) }) });
