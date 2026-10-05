@@ -21,6 +21,7 @@ const SKIP_DIRS = new Set(["logs", "call_logs", "backups", "tmp", "cache", ".cac
 const MAX_FILE = 80 * 1024 * 1024;
 const ENABLED = Boolean(TOKEN && REPO && SECRET);
 const log = (...a) => console.log("[backup]", ...a);
+const MISSING = [!TOKEN && "BACKUP_GITHUB_TOKEN", !REPO && "BACKUP_GITHUB_REPO", !SECRET && "BACKUP_PASSPHRASE (or STORAGE_ENCRYPTION_KEY)"].filter(Boolean).join(", ");
 const key = crypto.createHash("sha256").update(SECRET).digest();
 const api = `https://api.github.com/repos/${REPO}/contents/${FILE}`;
 const headers = { Authorization: `Bearer ${TOKEN}`, "User-Agent": "omniroute-backup", "X-GitHub-Api-Version": "2022-11-28" };
@@ -85,7 +86,7 @@ async function remoteSha() {
 
 let lastHash = null, busy = false, holdBackups = false, restoredSha = null;
 async function backup(reason) {
-  if (!ENABLED) { log(`SKIPPED (${reason}) — backup disabled: set BACKUP_GITHUB_TOKEN + BACKUP_GITHUB_REPO in Render`); return; }
+  if (!ENABLED) { log(`SKIPPED (${reason}) — backup disabled, missing in Render Environment: ${MISSING}`); return; }
   if (busy || holdBackups) return; busy = true;
   try {
     const plain = await buildBundle();
@@ -101,7 +102,7 @@ async function backup(reason) {
 }
 
 async function restore() {
-  if (!ENABLED) { log("disabled (set BACKUP_GITHUB_TOKEN + BACKUP_GITHUB_REPO)"); return; }
+  if (!ENABLED) { log(`DISABLED — missing in Render Environment: ${MISSING}`); return; }
   const hasDb = walk(DATA_DIR).some((f) => /\.(sqlite|db)$/.test(f));
   if (hasDb && process.env.BACKUP_FORCE_RESTORE !== "true") { restoredSha = await remoteSha().catch(() => null); log("local data exists, skipping restore"); return; }
   try {

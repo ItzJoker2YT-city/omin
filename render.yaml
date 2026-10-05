@@ -30,6 +30,8 @@ services:
         value: ItzJoker2YT-city/omin-backup   # PRIVATE repo that stores encrypted backups
       - key: BACKUP_GITHUB_TOKEN
         sync: false          # fine-grained token: omin-backup repo, Contents read/write
+      - key: BACKUP_PASSPHRASE
+        generateValue: true  # encrypts backups — never change it after first backup
       - key: BACKUP_INTERVAL_MIN
         value: "10"
       - key: REDIS_URL
