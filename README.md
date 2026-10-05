@@ -7,7 +7,8 @@ Deploys [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (free AI gateway)
 2. In Render: **New → Blueprint** → pick the repo → **Apply**.
 3. When prompted, set:
    - `INITIAL_PASSWORD` – your dashboard login password
-   - `NEXT_PUBLIC_BASE_URL` – your service URL (you can fill it in after the first deploy, then redeploy)
+   - `PUBLIC_URL` – optional. Only if you use a custom domain (e.g. `https://omin.runhost.bond`).
+     Leave blank and the app auto-uses your `https://xxxx.onrender.com` address.
 4. Open `https://<your-service>.onrender.com` and log in.
 
 ## Use it
@@ -21,3 +22,12 @@ This repo is set to Render's **free** plan:
 - 512 MB RAM, so heavy use may cause restarts.
 
 To keep your data, switch to `plan: starter` and add a disk mounted at `/app/data`.
+
+## Domain auto-detect
+`render-start.sh` runs before OmniRoute and sets `OMNIROUTE_PUBLIC_BASE_URL`, `NEXT_PUBLIC_BASE_URL`
+and `AUTH_COOKIE_SECURE` automatically from `PUBLIC_URL` or Render's `RENDER_EXTERNAL_URL`.
+No `.env` editing needed. Check the Render **Logs** tab for `[render-start] Public URL: ...`.
+
+## "Bootstrap token" screen
+If OmniRoute asks for a one-time bootstrap token, open Render → your service → **Logs**,
+search for `bootstrap`, copy the token and paste it into the page.

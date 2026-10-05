@@ -15,12 +15,16 @@ services:
         generateValue: true
       - key: API_KEY_SECRET
         generateValue: true
+      - key: STORAGE_ENCRYPTION_KEY
+        generateValue: true
       - key: OMNIROUTE_WS_BRIDGE_SECRET
         generateValue: true
+      - key: REQUIRE_API_KEY
+        value: "true"
       - key: INITIAL_PASSWORD
         sync: false          # Render asks you for this on first deploy
-      - key: NEXT_PUBLIC_BASE_URL
-        sync: false          # e.g. https://omniroute-xxxx.onrender.com
+      - key: PUBLIC_URL
+        sync: false          # OPTIONAL: custom domain, e.g. https://omin.runhost.bond (leave blank to use *.onrender.com)
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -31,4 +35,4 @@ services:
   - type: keyvalue
     name: omniroute-redis
     plan: free
-    ipAllowList: []          # only reachable from your Render services
+    ipAllowList: []
