@@ -83,9 +83,10 @@ async function remoteSha() {
   return (await r.json()).sha;
 }
 
-let lastHash = null, busy = false;
+let lastHash = null, busy = false, holdBackups = false, restoredSha = null;
 async function backup(reason) {
-  if (!ENABLED || busy) return; busy = true;
+  if (!ENABLED) { log(`SKIPPED (${reason}) — backup disabled: set BACKUP_GITHUB_TOKEN + BACKUP_GITHUB_REPO in Render`); return; }
+  if (busy || holdBackups) return; busy = true;
   try {
     const plain = await buildBundle();
     const hash = crypto.createHash("sha256").update(JSON.stringify(JSON.parse(plain).files)).digest("hex");
@@ -94,19 +95,28 @@ async function backup(reason) {
     const r = await fetch(api, { method: "PUT", headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({ message: `backup: ${reason}`, content: blob.toString("base64"), branch: BRANCH, ...(sha && { sha }) }) });
     if (!r.ok) throw new Error(`GitHub ${r.status} ${await r.text()}`);
-    lastHash = hash; log(`saved (${reason}) ${(blob.length / 1024).toFixed(0)} KB`);
+    lastHash = hash; restoredSha = (await r.json()).content?.sha ?? restoredSha;
+    log(`saved (${reason}) ${(blob.length / 1024).toFixed(0)} KB`);
   } catch (e) { log("FAILED:", e.message); } finally { busy = false; }
 }
 
 async function restore() {
   if (!ENABLED) { log("disabled (set BACKUP_GITHUB_TOKEN + BACKUP_GITHUB_REPO)"); return; }
   const hasDb = walk(DATA_DIR).some((f) => /\.(sqlite|db)$/.test(f));
-  if (hasDb && process.env.BACKUP_FORCE_RESTORE !== "true") { log("local data exists, skipping restore"); return; }
+  if (hasDb && process.env.BACKUP_FORCE_RESTORE !== "true") { restoredSha = await remoteSha().catch(() => null); log("local data exists, skipping restore"); return; }
   try {
-    const r = await fetch(`${api}?ref=${BRANCH}`, { headers: { ...headers, Accept: "application/vnd.github.raw" } });
-    if (r.status === 404) { log("no backup yet — fresh start"); return; }
-    if (!r.ok) throw new Error(`GitHub ${r.status}`);
-    const { at, files } = JSON.parse(decrypt(Buffer.from(await r.arrayBuffer())));
+    const sha = await remoteSha();
+    if (!sha) { log("no backup yet — fresh start"); return; }
+    // Download by blob SHA (content-addressed, never stale), with retries
+    let blob;
+    for (let i = 0; i < 5 && !blob; i++) {
+      const r = await fetch(`https://api.github.com/repos/${REPO}/git/blobs/${sha}`, { headers: { ...headers, Accept: "application/vnd.github.raw" } });
+      if (r.ok) blob = Buffer.from(await r.arrayBuffer()); else await new Promise((z) => setTimeout(z, 2000));
+    }
+    if (!blob) throw new Error("could not download backup");
+    restoredSha = sha;
+    const { at, files } = JSON.parse(decrypt(blob));
+    for (const rel of Object.keys(files)) for (const ext of ["-wal", "-shm"]) if (!files[rel + ext]) fs.rmSync(path.join(DATA_DIR, rel + ext), { force: true });
     for (const [rel, b64] of Object.entries(files)) {
       const dest = path.join(DATA_DIR, rel);
       fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -122,24 +132,53 @@ if (process.argv[2] === "--backup-now") { await backup("manual"); process.exit(0
 fs.mkdirSync(DATA_DIR, { recursive: true });
 await restore();
 
-const child = spawn("/app/check-permissions.sh", process.argv.slice(2), { stdio: "inherit", env: process.env });
+// Render zero-downtime deploys start the NEW instance before the OLD one gets SIGTERM,
+// so the old instance's final backup lands a bit AFTER we restored. Watch for it for
+// LATE_RESTORE_SEC and, if it appears, reload it (OmniRoute is restarted once).
+const LATE_SEC = Number(process.env.BACKUP_LATE_RESTORE_SEC || 240);
+let child, stopping = false, restarting = false;
+function startChild() {
+  child = spawn(process.env.BACKUP_CHILD_CMD || "/app/check-permissions.sh", process.argv.slice(2), { stdio: "inherit", env: process.env });
+  child.on("error", (e) => { log("failed to start OmniRoute:", e.message); process.exit(1); });
+  child.on("exit", async (code) => {
+    if (stopping || restarting) return; stopping = true; clearInterval(timer);
+    log(`OmniRoute exited (code ${code}) — backing up before restart`);
+    await backup("crash/restart");
+    process.exit(code ?? 1);
+  });
+}
+const stopChild = (sig = "SIGTERM") => new Promise((res) => {
+  if (!child || child.exitCode !== null) return res();
+  child.once("exit", res); child.kill(sig); setTimeout(res, 40_000);
+});
+
+startChild();
 const timer = ENABLED ? setInterval(() => backup("scheduled"), INTERVAL_MIN * 60_000) : null;
-let stopping = false;
+
+if (ENABLED) {
+  holdBackups = true; // never overwrite the old instance's final backup
+  const started = Date.now();
+  const watch = setInterval(async () => {
+    if (stopping) return clearInterval(watch);
+    if (Date.now() - started > LATE_SEC * 1000) { clearInterval(watch); holdBackups = false; log("late-restore window closed"); return; }
+    const sha = await remoteSha().catch(() => undefined);
+    if (sha && sha !== restoredSha) {
+      clearInterval(watch);
+      log("newer backup from previous instance found — reloading it");
+      restarting = true; await stopChild();
+      process.env.BACKUP_FORCE_RESTORE = "true"; await restore(); delete process.env.BACKUP_FORCE_RESTORE;
+      restarting = false; holdBackups = false; startChild();
+    }
+  }, 10_000);
+}
 
 async function shutdown(sig) {
   if (stopping) return; stopping = true; clearInterval(timer);
   log(`${sig} received — stopping OmniRoute, then backing up`);
-  child.kill(sig);
-  await new Promise((res) => { child.once("exit", res); setTimeout(res, 40_000); });
+  await stopChild(sig);
+  holdBackups = false;
   await backup(`shutdown ${sig}`);
   process.exit(0);
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
-child.on("error", (e) => { log("failed to start OmniRoute:", e.message); process.exit(1); });
-child.on("exit", async (code) => {
-  if (stopping) return; stopping = true; clearInterval(timer);
-  log(`OmniRoute exited (code ${code}) — backing up before restart`);
-  await backup("crash/restart");
-  process.exit(code ?? 1);
-});
