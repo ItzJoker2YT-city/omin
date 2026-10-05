@@ -6,6 +6,7 @@ services:
     dockerfilePath: ./Dockerfile
     plan: free
     healthCheckPath: /login
+    maxShutdownDelaySeconds: 90   # time to back up before deploy/restart
     envVars:
       - key: PORT
         value: "20128"
@@ -25,6 +26,12 @@ services:
         sync: false          # Render asks you for this on first deploy
       - key: PUBLIC_URL
         sync: false          # OPTIONAL: custom domain, e.g. https://omin.runhost.bond (leave blank to use *.onrender.com)
+      - key: BACKUP_GITHUB_REPO
+        value: ItzJoker2YT-city/omin-backup   # PRIVATE repo that stores encrypted backups
+      - key: BACKUP_GITHUB_TOKEN
+        sync: false          # fine-grained token: omin-backup repo, Contents read/write
+      - key: BACKUP_INTERVAL_MIN
+        value: "10"
       - key: REDIS_URL
         fromService:
           type: keyvalue

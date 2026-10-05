@@ -17,10 +17,12 @@ ENV NODE_ENV=production \
     OMNIROUTE_PRESSURE_PSI_DISABLED=true \
     OMNIROUTE_PRESSURE_SELF_RESTART=true \
     OMNIROUTE_PRESSURE_SELF_RESTART_AFTER_MS=60000 \
-    OMNIROUTE_ENABLE_LIVE_WS=0
+    OMNIROUTE_ENABLE_LIVE_WS=0 \
+    DISABLE_SQLITE_AUTO_BACKUP=true
 
 # Startup script: auto-sets OMNIROUTE_PUBLIC_BASE_URL from your Render domain
 COPY --chmod=755 render-start.sh /app/render-start.sh
+COPY --chmod=644 backup-runner.mjs /app/backup-runner.mjs
 
 EXPOSE 20128
 ENTRYPOINT ["/app/render-start.sh"]

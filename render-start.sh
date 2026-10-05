@@ -18,5 +18,5 @@ fi
 export HOST="${HOST:-0.0.0.0}"
 export OMNIROUTE_SERVER_HOST="${OMNIROUTE_SERVER_HOST:-0.0.0.0}"
 
-# Hand off to OmniRoute's original entrypoint + command
-exec /app/check-permissions.sh "$@"
+# Restore backup, start OmniRoute, back up on schedule + before shutdown/deploy
+exec node --max-old-space-size=48 /app/backup-runner.mjs "$@"

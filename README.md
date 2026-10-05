@@ -39,3 +39,17 @@ auto-restart on sustained pressure). Tips:
 - Avoid "Test all models" batch tests — they spike memory.
 - Add only the providers you actually use.
 - For reliable use, pick a plan with 2 GB RAM (Render Standard) and set OMNIROUTE_MEMORY_MB=1024.
+
+## Auto backup & restore (survives deploys, restarts, sleep)
+`backup-runner.mjs` keeps your OmniRoute data in the **private** repo `ItzJoker2YT-city/omin-backup`
+(AES-256 encrypted with `STORAGE_ENCRYPTION_KEY`, or `BACKUP_PASSPHRASE` if set).
+- **Before every deploy/restart/sleep** (Render sends SIGTERM): stops OmniRoute cleanly, then backs up.
+- **Every 10 min** while running: backs up if anything changed (protects against crashes).
+- **On start:** if the data folder is empty, restores the latest backup automatically.
+
+Setup (once): create a fine-grained token at https://github.com/settings/personal-access-tokens/new
+→ Repository access: only `omin-backup` → Permissions: **Contents: Read and write**.
+Put it in Render → Environment → `BACKUP_GITHUB_TOKEN`, and make sure `BACKUP_GITHUB_REPO=ItzJoker2YT-city/omin-backup`.
+Logs show `[backup] saved ...` and `[backup] restored ...`.
+
+Keep `STORAGE_ENCRYPTION_KEY`, `API_KEY_SECRET` and `JWT_SECRET` the same — if they change, old backups can't be read.
