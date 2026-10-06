@@ -1,0 +1,14 @@
+# OmniRoute on Fly.io (1 GB machine + persistent volume at /data)
+FROM diegosouzapw/omniroute:latest
+USER root
+ENV NODE_ENV=production \
+    DATA_DIR=/data \
+    OMNIROUTE_MEMORY_MB=512 \
+    APP_LOG_TO_FILE=false \
+    DISABLE_SQLITE_AUTO_BACKUP=true
+COPY --chmod=755 render-start.sh /app/render-start.sh
+COPY --chmod=755 fly-start.sh /app/fly-start.sh
+COPY --chmod=644 backup-runner.mjs /app/backup-runner.mjs
+EXPOSE 20128
+ENTRYPOINT ["/app/fly-start.sh"]
+CMD ["node", "dev/run-standalone.mjs"]

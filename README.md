@@ -53,3 +53,15 @@ Put it in Render → Environment → `BACKUP_GITHUB_TOKEN`, and make sure `BACKU
 Logs show `[backup] saved ...` and `[backup] restored ...`.
 
 Keep `STORAGE_ENCRYPTION_KEY`, `API_KEY_SECRET` and `JWT_SECRET` the same — if they change, old backups can't be read.
+
+---
+# Deploy on Fly.io (1 GB RAM, data saved on a volume — no backup needed)
+```sh
+fly auth login
+fly launch --no-deploy --copy-config      # keep fly.toml; change app name if taken
+fly volumes create omniroute_data --size 1 --region sjc
+fly secrets set JWT_SECRET=$(openssl rand -base64 48) API_KEY_SECRET=$(openssl rand -hex 32) \
+  OMNIROUTE_WS_BRIDGE_SECRET=$(openssl rand -hex 32) INITIAL_PASSWORD=your-password
+fly deploy
+```
+Open `https://<app>.fly.dev`. The public URL is detected automatically from `FLY_APP_NAME`.

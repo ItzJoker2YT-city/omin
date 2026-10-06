@@ -1,7 +1,8 @@
 #!/bin/sh
 # Auto-detect the public domain so OmniRoute's CSRF / "not local" checks pass.
-# Priority: PUBLIC_URL (your custom domain) > RENDER_EXTERNAL_URL (set by Render).
+# Priority: PUBLIC_URL (custom domain) > RENDER_EXTERNAL_URL (Render) > FLY_APP_NAME.fly.dev (Fly.io).
 URL="${PUBLIC_URL:-$RENDER_EXTERNAL_URL}"
+[ -z "$URL" ] && [ -n "$FLY_APP_NAME" ] && URL="https://${FLY_APP_NAME}.fly.dev"
 URL="${URL%/}"            # strip trailing slash
 URL="${URL%/v1}"          # strip accidental /v1
 
