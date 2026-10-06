@@ -92,10 +92,17 @@ async function backup(reason) {
     const plain = await buildBundle();
     const hash = crypto.createHash("sha256").update(JSON.stringify(JSON.parse(plain).files)).digest("hex");
     if (hash === lastHash) { if (reason !== "scheduled") log(`no changes (${reason})`); return; }
-    const blob = encrypt(plain); const sha = await remoteSha();
-    const r = await fetch(api, { method: "PUT", headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ message: `backup: ${reason}`, content: blob.toString("base64"), branch: BRANCH, ...(sha && { sha }) }) });
-    if (!r.ok) throw new Error(`GitHub ${r.status} ${await r.text()}`);
+    const blob = encrypt(plain);
+    // Replace the branch with ONE commit (no history) so the repo never grows.
+    const gh = async (m, u, body) => {
+      const r = await fetch(`https://api.github.com/repos/${REPO}${u}`, { method: m, headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error(`GitHub ${r.status} ${await r.text()}`); return r.json();
+    };
+    const b = await gh("POST", "/git/blobs", { content: blob.toString("base64"), encoding: "base64" });
+    const t = await gh("POST", "/git/trees", { tree: [{ path: FILE, mode: "100644", type: "blob", sha: b.sha }] });
+    const c = await gh("POST", "/git/commits", { message: `backup: ${reason} ${new Date().toISOString()}`, tree: t.sha, parents: [] });
+    await gh("PATCH", `/git/refs/heads/${BRANCH}`, { sha: c.sha, force: true });
+    const r = { json: async () => ({ content: { sha: b.sha } }) };
     lastHash = hash; restoredSha = (await r.json()).content?.sha ?? restoredSha;
     log(`saved (${reason}) ${(blob.length / 1024).toFixed(0)} KB`);
   } catch (e) { log("FAILED:", e.message); } finally { busy = false; }
