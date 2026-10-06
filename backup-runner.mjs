@@ -16,12 +16,12 @@ const REPO = process.env.BACKUP_GITHUB_REPO || ""; // e.g. user/omin-backup
 const BRANCH = process.env.BACKUP_GITHUB_BRANCH || "main";
 const FILE = process.env.BACKUP_FILE || "omniroute-backup.bin";
 const INTERVAL_MIN = Number(process.env.BACKUP_INTERVAL_MIN || 1);
-const SECRET = process.env.BACKUP_PASSPHRASE || process.env.STORAGE_ENCRYPTION_KEY || "";
+const SECRET = process.env.BACKUP_PASSPHRASE || process.env.STORAGE_ENCRYPTION_KEY || process.env.API_KEY_SECRET || process.env.JWT_SECRET || "";
 const SKIP_DIRS = new Set(["logs", "call_logs", "backups", "tmp", "cache", ".cache"]);
 const MAX_FILE = 80 * 1024 * 1024;
 const ENABLED = Boolean(TOKEN && REPO && SECRET);
 const log = (...a) => console.log("[backup]", ...a);
-const MISSING = [!TOKEN && "BACKUP_GITHUB_TOKEN", !REPO && "BACKUP_GITHUB_REPO", !SECRET && "BACKUP_PASSPHRASE (or STORAGE_ENCRYPTION_KEY)"].filter(Boolean).join(", ");
+const MISSING = [!TOKEN && "BACKUP_GITHUB_TOKEN", !REPO && "BACKUP_GITHUB_REPO", !SECRET && "BACKUP_PASSPHRASE (or API_KEY_SECRET)"].filter(Boolean).join(", ");
 const key = crypto.createHash("sha256").update(SECRET).digest();
 const api = `https://api.github.com/repos/${REPO}/contents/${FILE}`;
 const headers = { Authorization: `Bearer ${TOKEN}`, "User-Agent": "omniroute-backup", "X-GitHub-Api-Version": "2022-11-28" };
